@@ -167,13 +167,11 @@ async function refreshAccessTokenUnqueued(
     log.info("Google rotated the refresh token; callers must persist the new value");
     clearCachedAuth(auth.refresh);
     invalidateProjectContextCache(auth.refresh);
-  }
-
-  storeCachedAuth(updatedAuth);
-  if (!rotated) {
+  } else {
     invalidateProjectContextCache(auth.refresh);
   }
 
+  storeCachedAuth(updatedAuth);
   return updatedAuth;
 }
 
@@ -214,20 +212,7 @@ export async function refreshAccessToken(
 
   inflightRefreshes.set(token, pending);
   try {
-    const result = await pending;
-    if (result) {
-      const nextToken = rawRefreshToken(result.refresh);
-      if (nextToken && nextToken !== token) {
-        inflightRefreshes.set(nextToken, Promise.resolve(result));
-        queueMicrotask(() => {
-          if (inflightRefreshes.get(nextToken) && inflightRefreshes.get(token) !== pending) {
-            // keep resolved result only for waiters already attached to nextToken
-          }
-          inflightRefreshes.delete(nextToken);
-        });
-      }
-    }
-    return result;
+    return await pending;
   } finally {
     if (inflightRefreshes.get(token) === pending) {
       inflightRefreshes.delete(token);
